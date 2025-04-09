@@ -41,14 +41,3 @@ Transaction of `$120` yields:
 → `(120 - 100) * 2 + (100 - 50) * 1 = 40 + 50 = 90 points`
 
 ---
-
-## 📦 Getting Started
-
-### Prerequisites
-- Java 17 or later
-- Maven 3.6+
-
-### Clone the repo
-```bash
-git clone https://github.com/your-username/customer-reward-app.git
-cd customer-reward-app
