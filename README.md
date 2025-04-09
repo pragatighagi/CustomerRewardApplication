@@ -13,7 +13,6 @@ A Spring Boot application to calculate customer reward points based on transacti
 - Validation using Spring Validator (`jakarta.validation`)
 - In-memory H2 database (easy to run and test)
 - ModelMapper for DTO ↔ Entity mapping
-- Swagger UI for API documentation
 
 ---
 
@@ -26,7 +25,6 @@ A Spring Boot application to calculate customer reward points based on transacti
 - JPA/Hibernate
 - Lombok
 - ModelMapper
-- Swagger / OpenAPI (Springdoc)
 
 ---
 
