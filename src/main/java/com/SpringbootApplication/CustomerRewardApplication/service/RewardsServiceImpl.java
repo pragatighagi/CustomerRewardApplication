@@ -1,6 +1,4 @@
 package com.SpringbootApplication.CustomerRewardApplication.service;
-
-
 import com.SpringbootApplication.CustomerRewardApplication.entity.Transaction;
 import com.SpringbootApplication.CustomerRewardApplication.exception.CustomerNotFoundException;
 import com.SpringbootApplication.CustomerRewardApplication.payload.DateUtil;
@@ -67,16 +65,24 @@ public class RewardsServiceImpl implements RewardsService {
      */
     @Override
     public TransactionDTO saveTransaction(TransactionDTO transactionDTO) {
+
+        transactionDTO.setTransactionId(null);
+
         Transaction transaction = modelMapper.map(transactionDTO, Transaction.class);
 
-        // Convert Date to Timestamp for DB
-        transaction.setTransactionDate(new Timestamp(transactionDTO.getTransactionDate().getTime()));
+        Date dtoDate = transactionDTO.getTransactionDate();
+        if (dtoDate != null) {
+            transaction.setTransactionDate(new Timestamp(dtoDate.getTime()));
+        }
 
         Transaction saved = transactionRepository.save(transaction);
 
-        // Convert back to DTO and return
+        // Map back to DTO
         TransactionDTO savedDTO = modelMapper.map(saved, TransactionDTO.class);
-        savedDTO.setTransactionDate(new Date(saved.getTransactionDate().getTime()));
+        if (saved.getTransactionDate() != null) {
+            savedDTO.setTransactionDate(new Date(saved.getTransactionDate().getTime()));
+        }
+
         return savedDTO;
     }
 

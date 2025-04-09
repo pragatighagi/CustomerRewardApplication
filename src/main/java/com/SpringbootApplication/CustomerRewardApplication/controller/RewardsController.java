@@ -8,12 +8,15 @@ import org.springframework.web.bind.annotation.*;
 import com.SpringbootApplication.CustomerRewardApplication.payload.RewardsDTO;
 import com.SpringbootApplication.CustomerRewardApplication.service.RewardsServiceImpl;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 /**
  * REST controller for handling reward calculation and transaction operations.
  *
  * Provides endpoints to:
  * - Retrieve reward points for a specific customer.
- * - Save a new customer transaction.
+ * - Save one or more customer transactions.
  */
 @RestController
 @RequestMapping("/api/rewards")
@@ -44,14 +47,17 @@ public class RewardsController {
     }
 
     /**
-     * Saves a customer transaction after validation.
+     * Saves a list of customer transactions after validation.
      *
-     * @param transactionDTO the transaction data received from the client
-     * @return a ResponseEntity containing the saved transaction data
+     * @param transactionDTOList the list of transaction data received from the client
+     * @return a ResponseEntity containing the list of saved transaction data
      */
     @PostMapping
-    public ResponseEntity<TransactionDTO> saveTransaction(@Valid @RequestBody TransactionDTO transactionDTO) {
-        TransactionDTO saved = rewardsService.saveTransaction(transactionDTO);
-        return ResponseEntity.ok(saved);
+    public ResponseEntity<List<TransactionDTO>> saveTransactions(@Valid @RequestBody List<TransactionDTO> transactionDTOList) {
+        List<TransactionDTO> savedTransactions = transactionDTOList.stream()
+                .map(rewardsService::saveTransaction)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(savedTransactions);
     }
 }

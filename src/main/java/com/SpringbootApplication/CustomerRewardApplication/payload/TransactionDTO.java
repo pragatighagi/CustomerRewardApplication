@@ -12,6 +12,7 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TransactionDTO {
+    private Long transactionId;
     @NotNull(message = "Customer ID must not be null.")
     private Long customerId;
     @NotNull(message = "Transaction amount must not be null.")
