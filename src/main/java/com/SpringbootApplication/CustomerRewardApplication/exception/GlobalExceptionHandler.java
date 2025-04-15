@@ -34,22 +34,12 @@ public class GlobalExceptionHandler {
         errorResponse.put("message", "Validation failed");
 
         List<Map<String, Object>> errors = new ArrayList<>();
-
         ex.getAllErrors().forEach(error -> {
             Map<String, Object> errorDetails = new LinkedHashMap<>();
-
-            if (error instanceof ObjectError objectError) {
-                errorDetails.put("objectName", objectError.getObjectName());
-
-                if (objectError instanceof FieldError fieldError) {
-                    errorDetails.put("field", fieldError.getField());
-                    errorDetails.put("rejectedValue", fieldError.getRejectedValue());
-                    errorDetails.put("message", fieldError.getDefaultMessage());
-                } else {
-                    errorDetails.put("message", objectError.getDefaultMessage());
-                }
+            if (error instanceof ObjectError) {
+                errorDetails.put("objectName", ((ObjectError) error).getObjectName());
+                errorDetails.put("message", error.getDefaultMessage());
             }
-
             errors.add(errorDetails);
         });
 

@@ -1,17 +1,16 @@
 package com.SpringbootApplication.CustomerRewardApplication.payload;
 
 import lombok.Builder;
-import lombok.*;
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.Map;
 
 @Getter
 @Setter
-@AllArgsConstructor
-@NoArgsConstructor
 @Builder
 public class RewardsDTO {
     private Long customerId;
-    private long lastMonthRewardPoints;
-    private long lastSecondMonthRewardPoints;
-    private long lastThirdMonthRewardPoints;
+    private Map<String, Long> monthlyRewards;
     private long totalRewards;
 }

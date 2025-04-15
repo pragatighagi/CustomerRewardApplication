@@ -1,22 +1,26 @@
 package com.SpringbootApplication.CustomerRewardApplication.service;
+
 import com.SpringbootApplication.CustomerRewardApplication.entity.Transaction;
 import com.SpringbootApplication.CustomerRewardApplication.exception.CustomerNotFoundException;
-import com.SpringbootApplication.CustomerRewardApplication.payload.DateUtil;
 import com.SpringbootApplication.CustomerRewardApplication.payload.RewardsDTO;
 import com.SpringbootApplication.CustomerRewardApplication.payload.TransactionDTO;
 import com.SpringbootApplication.CustomerRewardApplication.repository.TransactionRepository;
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.modelmapper.ModelMapper;
-import java.sql.Timestamp;
-import java.util.Date;
-import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Implementation of RewardsService for calculating and saving customer rewards.
- */
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.stream.Collectors;
+
 @Service
 public class RewardsServiceImpl implements RewardsService {
+
+    private static final Logger logger = LoggerFactory.getLogger(RewardsServiceImpl.class);
 
     private final TransactionRepository transactionRepository;
     private final ModelMapper modelMapper;
@@ -27,104 +31,112 @@ public class RewardsServiceImpl implements RewardsService {
         this.modelMapper = modelMapper;
     }
 
-    /**
-     * Retrieves reward points earned by a customer over the past three months.
-     *
-     * @param customerId ID of the customer
-     * @return DTO containing month-wise and total reward points
-     * @throws IllegalArgumentException if customerId is null
-     * @throws CustomerNotFoundException if customer does not exist
-     */
     @Override
     public RewardsDTO getRewardsByCustomerId(Long customerId) {
-        if (customerId == null) {
-            throw new IllegalArgumentException("Customer ID must not be null.");
-        }
-
+        // Validate if the customer exists
         if (!transactionRepository.existsByCustomerId(customerId)) {
             throw new CustomerNotFoundException("Customer with ID " + customerId + " not found.");
         }
 
-        long lastMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 1));
-        long secondMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 2));
-        long thirdMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 3));
+        try {
+            LocalDate now = LocalDate.now();
+            String lastMonth = capitalizeMonth(now.minusMonths(1).getMonth().name());
+            String secondLastMonth = capitalizeMonth(now.minusMonths(2).getMonth().name());
+            String thirdLastMonth = capitalizeMonth(now.minusMonths(3).getMonth().name());
 
-        return RewardsDTO.builder()
-                .customerId(customerId)
-                .lastMonthRewardPoints(lastMonthPoints)
-                .lastSecondMonthRewardPoints(secondMonthPoints)
-                .lastThirdMonthRewardPoints(thirdMonthPoints)
-                .totalRewards(lastMonthPoints + secondMonthPoints + thirdMonthPoints)
-                .build();
+            // Calculate rewards for each month
+            long lastMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 1));
+            long secondMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 2));
+            long thirdMonthPoints = calculateMonthlyRewards(fetchTransactions(customerId, 3));
+
+            Map<String, Long> monthlyRewards = new LinkedHashMap<>();
+            monthlyRewards.put(lastMonth, lastMonthPoints);
+            monthlyRewards.put(secondLastMonth, secondMonthPoints);
+            monthlyRewards.put(thirdLastMonth, thirdMonthPoints);
+
+            // Return rewards details
+            return RewardsDTO.builder()
+                    .customerId(customerId)
+                    .monthlyRewards(monthlyRewards)
+                    .totalRewards(lastMonthPoints + secondMonthPoints + thirdMonthPoints)
+                    .build();
+        } catch (Exception e) {
+            logger.error("Error calculating rewards for customer with ID " + customerId, e);
+            throw new RuntimeException("Error calculating rewards for customer with ID " + customerId, e);
+        }
     }
-    /**
-     * Saves a transaction after converting the DTO to entity.
-     *
-     * @param transactionDTO validated DTO object
-     * @return saved transaction as DTO
-     */
+
+    @Override
+    public List<RewardsDTO> getRewardsByCustomerId(List<Long> customerIds) {
+        return customerIds.stream()
+                .map(this::getRewardsByCustomerId)
+                .collect(Collectors.toList());
+    }
+
     @Override
     public TransactionDTO saveTransaction(TransactionDTO transactionDTO) {
+        try {
+            transactionDTO.setTransactionId(null); // ensure ID is autogenerated
+            Transaction transaction = modelMapper.map(transactionDTO, Transaction.class);
 
-        transactionDTO.setTransactionId(null);
+            if (transactionDTO.getTransactionDate() != null) {
+                transaction.setTransactionDate(convertToTimestamp(transactionDTO.getTransactionDate()));
+            }
 
-        Transaction transaction = modelMapper.map(transactionDTO, Transaction.class);
+            Transaction savedTransaction = transactionRepository.save(transaction);
+            TransactionDTO savedDTO = modelMapper.map(savedTransaction, TransactionDTO.class);
+            savedDTO.setTransactionDate(new Date(savedTransaction.getTransactionDate().getTime()));
 
-        Date dtoDate = transactionDTO.getTransactionDate();
-        if (dtoDate != null) {
-            transaction.setTransactionDate(new Timestamp(dtoDate.getTime()));
+            return savedDTO;
+        } catch (Exception e) {
+            logger.error("Error saving transaction", e);
+            throw new RuntimeException("Error saving transaction", e);
         }
-
-        Transaction saved = transactionRepository.save(transaction);
-
-        // Map back to DTO
-        TransactionDTO savedDTO = modelMapper.map(saved, TransactionDTO.class);
-        if (saved.getTransactionDate() != null) {
-            savedDTO.setTransactionDate(new Date(saved.getTransactionDate().getTime()));
-        }
-
-        return savedDTO;
     }
 
-    /**
-     * Fetches all transactions for a customer in a given month offset.
-     *
-     * @param customerId customer ID
-     * @param monthOffset how many months back (1 = last month, etc.)
-     * @return list of transactions
-     */
+    private Timestamp convertToTimestamp(Date date) {
+        return new Timestamp(date.getTime());
+    }
+
     private List<Transaction> fetchTransactions(Long customerId, int monthOffset) {
-        Date start = DateUtil.getStartOfMonthOffset(monthOffset);
-        Date end = DateUtil.getEndOfMonthOffset(monthOffset);
-        return transactionRepository.findAllByCustomerIdAndTransactionDateBetween(customerId, start, end);
+        try {
+            Date start = getStartOfMonthOffset(monthOffset);
+            Date end = getEndOfMonthOffset(monthOffset);
+            return transactionRepository.findAllByCustomerIdAndTransactionDateBetween(customerId, start, end);
+        } catch (Exception e) {
+            logger.error("Error fetching transactions for customer " + customerId, e);
+            throw new RuntimeException("Error fetching transactions for customer " + customerId, e);
+        }
     }
 
-    /**
-     * Calculates total rewards from a list of transactions.
-     *
-     * @param transactions list of transactions
-     * @return reward points
-     */
     private long calculateMonthlyRewards(List<Transaction> transactions) {
         return transactions.stream()
                 .mapToLong(this::calculateRewardPoints)
                 .sum();
     }
 
-    /**
-     * Calculates reward points from a single transaction.
-     *
-     * @param transaction the transaction object
-     * @return reward points
-     */
     private long calculateRewardPoints(Transaction transaction) {
         double amount = transaction.getTransactionAmount();
         if (amount > 100) {
             return (long) ((amount - 100) * 2 + 50);
         } else if (amount > 50) {
             return (long) (amount - 50);
-        } else {
-            return 0;
         }
+        return 0;
+    }
+
+    private Date getStartOfMonthOffset(int monthOffset) {
+        LocalDate date = LocalDate.now().minusMonths(monthOffset);
+        return Date.from(date.withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+    }
+
+    private Date getEndOfMonthOffset(int monthOffset) {
+        LocalDate date = LocalDate.now().minusMonths(monthOffset);
+        return Date.from(date.withDayOfMonth(date.lengthOfMonth()).atTime(23, 59, 59)
+                .atZone(ZoneId.systemDefault()).toInstant());
+    }
+
+    private String capitalizeMonth(String month) {
+        return month.charAt(0) + month.substring(1).toLowerCase();
     }
 }

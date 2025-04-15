@@ -9,8 +9,9 @@ import java.util.Date;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TransactionDTO {
     private Long transactionId;
     @NotNull(message = "Customer ID must not be null.")
